@@ -60,19 +60,20 @@ jobs:
           curl "$deploy_url"
       - name: Notify success
         if: success() && github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip')
-        uses: rjstone/discord-webhook-notify@c2597273488aeda841dd1e891321952b51f7996f
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 #1.16.0
         with:
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-          severity: info
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: success
+          title: Deployment succeeded
           description: Deployment successful for commit ${{ github.sha }}
       - name: Notify failure
         if: failure()
-        uses: rjstone/discord-webhook-notify@c2597273488aeda841dd1e891321952b51f7996f
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 #1.16.0
         with:
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-          severity: error
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: fail
+          title: Deployment failed
           description: Build failed for commit ${{ github.sha }} in workflow ${{ github.workflow }}
-          details: Check the workflow run for more details.
 
   tag_release:
     needs: [simple_deployment_pipeline]
