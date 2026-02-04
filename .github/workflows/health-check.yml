@@ -1,0 +1,21 @@
+name: Health Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+  schedule:
+    - cron: '45 * * * *'
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check deployed URL health
+        uses: jtalk/url-health-check-action@b716ccb6645355dd9fcce8002ce460e5474f7f00 #v4
+        with:
+          url: ${{ secrets.HEALTH_URL }}
