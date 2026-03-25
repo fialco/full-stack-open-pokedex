@@ -26,7 +26,7 @@ jobs:
           COMMIT_MESSAGES: ${{ toJson(github.event.commits.*.message) }}
         run: echo "$COMMIT_MESSAGES"
 
-  simple_deployment_pipeline:
+  lint_and_build:
     needs: [commit_messages]
     runs-on: ubuntu-latest
     steps:
@@ -40,8 +40,30 @@ jobs:
         run: npm run eslint
       - name: Build project
         run: npm run build
+
+  test:
+    needs: [lint_and_build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
       - name: Run tests
         run: npm run test
+
+  e2e_tests:
+    needs: [lint_and_build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
       - name: Run Playwright tests
@@ -52,23 +74,37 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 30
+
+  deploy:
+    needs: [test, e2e_tests]
+    if: ${{ github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Deploy
-        if: ${{ github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip') }}
         env:
           deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
           curl "$deploy_url"
-      - name: Notify success
-        if: success() && github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip')
-        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 #1.16.0
+
+  notify_success:
+    needs: [deploy]
+    if: success() && github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 #1.16.0
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: success
           title: Deployment succeeded
           description: Deployment successful for commit ${{ github.sha }}
-      - name: Notify failure
-        if: failure()
-        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 #1.16.0
+
+  notify_failure:
+    needs: [test, e2e_tests, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 #1.16.0
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: fail
@@ -76,7 +112,7 @@ jobs:
           description: Build failed for commit ${{ github.sha }} in workflow ${{ github.workflow }}
 
   tag_release:
-    needs: [simple_deployment_pipeline]
+    needs: [deploy]
     if: ${{ github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip') }}
     runs-on: ubuntu-latest
     permissions:
