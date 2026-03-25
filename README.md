@@ -15,3 +15,4 @@ Start by running `npm install` inside the project folder
 `npm run start-prod` to run your production build
 
 [Link to app](https://full-stack-open-pokedex-vxa4.onrender.com/)
+[Link to ex 21-22 repo](https://github.com/fialco/full-stack-open-cicd)
